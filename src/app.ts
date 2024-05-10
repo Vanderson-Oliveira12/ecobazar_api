@@ -11,7 +11,6 @@ const port = process.env.PORT || 3001;
 app.use(express.json());
 app.use("/api", routes);
 
-
 connection.then(x => {
     console.log("Conectado ao banco com sucesso!")
     app.listen(port, () => {

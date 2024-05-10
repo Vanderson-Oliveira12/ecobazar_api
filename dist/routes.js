@@ -9,3 +9,5 @@ const AuthController_1 = __importDefault(require("./Controllers/AuthController")
 exports.routes = express_1.default.Router();
 exports.routes.get("/auth/signin", AuthController_1.default.signIn);
 exports.routes.post("/auth/signup", AuthController_1.default.signUp);
+exports.routes.get("/auth/recoveryPassword", AuthController_1.default.recoveryPassword);
+exports.routes.post("/auth/createNewPassword", AuthController_1.default.createNewPassword);

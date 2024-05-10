@@ -1,7 +1,9 @@
 import { Request, Response } from "express";
+import { sendEmail } from "../services/sendMail";
 
 import { UserModel } from "../Models/UserModel";
 
+import crypto from "crypto";
 import bcrypt from "bcrypt";
 import { sign } from "jsonwebtoken";
 
@@ -9,46 +11,50 @@ class AuthController {
   async signIn(req: Request, res: Response) {
     const { email, password } = req.body;
 
-    try { 
+    if (!process.env.JWT_SECRET) {
+      throw new Error("A chave JWT não está definida no ambiente!");
+    }
 
+    try {
       if (!email || !password) {
         return res.send({ message: "Email e senha obrigatórios!" }).status(400);
       }
 
-      const user = await UserModel.findOne({ email: email });
+      const user = await UserModel.findOne({ email: email }).select(
+        "+password"
+      );
 
       if (!user) {
         return res
           .send({ message: "Não existe usuário com esse e-mail" })
           .status(401);
       }
-  
-      const passwordIsEqual = await bcrypt.compare(
-        password,
-        user.password
-      );
-  
+
+      const passwordIsEqual = await bcrypt.compare(password, user.password);
+
       if (!passwordIsEqual) {
-        return res.send({ message: "Usuário ou senha incorretos!" }).status(401);
+        return res
+          .send({ message: "Usuário ou senha incorretos!" })
+          .status(401);
       }
-  
+
       const payload = sign(
         {
           id: user.id,
           email: user.email,
         },
-        "chaveTeste",
+        process.env.JWT_SECRET,
         { expiresIn: 3600 }
       );
-  
-      res.send({ accessToken: payload }).status(200);
-    }
-    catch(err) {
-      console.log("Erro signin")
-      return res.send({message: "Erro interno, contate o suporte do sistema"}).status(500);
-    }
 
-   
+      res.send({ accessToken: "Bearer " + payload }).status(200);
+    } catch (err) {
+      console.log("Erro signin");
+      console.log(err);
+      return res
+        .send({ message: "Erro interno, contate o suporte do sistema" })
+        .status(500);
+    }
   }
 
   async signUp(req: Request, res: Response) {
@@ -75,7 +81,87 @@ class AuthController {
       res.send({ message: userCreated }).status(201);
     } catch (err) {
       console.log(err);
-      res.status(500).send({ message: "Erro interno do servidor!"});
+      return res.status(500).send({ message: "Erro interno do servidor!" });
+    }
+  }
+
+  async recoveryPassword(req: Request, res: Response) {
+    const { email } = req.body;
+
+    try {
+      if (!email) {
+        return res.send({ message: "Informe um email" }).status(400);
+      }
+
+      const user = await UserModel.findOne({ email: email });
+
+      if (!user) {
+        return res
+          .send({ message: "Usuário com esse e-mail não encontrado" })
+          .status(400);
+      }
+
+      const recoveryToken = crypto.randomBytes(32).toString("hex");
+      const expires = new Date();
+      expires.setMinutes(expires.getMinutes() + 5);
+
+      await UserModel.findByIdAndUpdate(user.id, {
+        passwordRecoveryToken: recoveryToken,
+        passwordRecoveryExpires: expires,
+      });
+
+      await sendEmail('Recuperação de conta', "Texto de recuperação" , email)
+      
+      return res.send({message: "Foi enviado um link de recuperação, para o email registrado!"});
+    } catch (err) {
+      console.log(err);
+      return res.status(500).send({ message: "Erro interno do servidor!" });
+    }
+  }
+
+  async createNewPassword(req: Request, res: Response) {
+    const { email, recoveryToken, newPassword, newPasswordConfirm } = req.body;
+    const now = new Date();
+
+    try {
+      if (!email || !recoveryToken || !newPassword || !newPasswordConfirm) {
+        return res
+          .send({ message: "Campos obrigatórios não foram informados!" })
+          .status(400);
+      }
+
+      const user = await UserModel.findOne({ email }).select(
+        "+passwordRecoveryToken passwordRecoveryExpires"
+      );
+
+      if (!user) {
+        return res
+          .send({ message: "Não existe usuário para esse e-mail!" })
+          .status(400);
+      }
+
+      if (newPassword !== newPasswordConfirm) {
+        return res.send({ message: "As senhas não são iguais!" }).status(400);
+      }
+
+      if (recoveryToken !== user.passwordRecoveryToken) {
+        return res.send({ message: "Token inválido" }).status(400);
+      }
+
+      if (!user.passwordRecoveryExpires || now > user.passwordRecoveryExpires) {
+        return res.send({ message: "Token expirado!" }).status(400);
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+
+      await UserModel.findByIdAndUpdate(user.id, {
+        password: passwordHash,
+      });
+
+      res.send({ message: "Senha alterada com sucesso!" });
+    } catch (err) {
+      console.log(err);
+      return res.status(500).send({ message: "Erro interno do servidor!" });
     }
   }
 }

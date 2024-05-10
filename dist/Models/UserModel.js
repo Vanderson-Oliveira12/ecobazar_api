@@ -44,7 +44,16 @@ const UserSchema = new mongoose_1.Schema({
     },
     password: {
         type: mongoose_1.Schema.Types.String,
-        required: true
+        required: true,
+        select: false
+    },
+    passwordRecoveryToken: {
+        type: mongoose_1.Schema.Types.String,
+        select: false
+    },
+    passwordRecoveryExpires: {
+        type: Date,
+        select: false
     },
     phone: {
         type: mongoose_1.Schema.Types.String,

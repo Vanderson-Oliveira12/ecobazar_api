@@ -43,7 +43,16 @@ const UserSchema = new Schema({
     },
     password: {
         type: Schema.Types.String,
-        required: true
+        required: true,
+        select: false
+    },
+    passwordRecoveryToken: {
+        type: Schema.Types.String,
+        select: false
+    },
+    passwordRecoveryExpires: {
+        type: Date,
+        select: false
     },
     phone: {
         type: Schema.Types.String,

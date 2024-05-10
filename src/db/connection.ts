@@ -1,3 +1,10 @@
 import mongoose from "mongoose";
+import { config } from "dotenv";
 
-export default mongoose.connect("mongodb://127.0.0.1:27017/ecobazar");
+config();
+
+if(!process.env.DB_DATABASE) {
+    throw new Error("Defina a DB nas variáveis")
+}
+
+export default mongoose.connect(process.env.DB_DATABASE);
