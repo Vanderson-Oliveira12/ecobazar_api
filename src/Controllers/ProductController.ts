@@ -1,16 +1,16 @@
-
+import { ProductModel } from "../Models/ProductModel";
 
 class ProductController {
 
-    listAllProducts() { }
+    async listAllProducts() { }
     
-    listProductsByCategory() { }
+    async listProductsByCategory() { }
 
-    createProduct() { }
+    async createProduct() { }
 
-    updateProduct() { }
+    async updateProduct() { }
 
-    deleteProduct() { }
+    async deleteProduct() { }
 
 }
 

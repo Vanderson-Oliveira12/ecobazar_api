@@ -16,4 +16,6 @@ routes.post("/auth/createNewPassword", AuthController.createNewPassword);
 /* Categories */
 
 routes.get("/categories", CategoryController.listCategories);
-routes.post("/categories/create", uploads.single('image') ,CategoryController.createCategory);
+routes.post("/category/create", uploads.single('image') ,CategoryController.createCategory);
+routes.put("/category/update/:categoryId", uploads.single('image') , CategoryController.updateCategory);
+routes.delete("/category/delete/:categoryId", CategoryController.deleteCategory);
