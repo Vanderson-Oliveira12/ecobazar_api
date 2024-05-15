@@ -36,11 +36,9 @@ const productSchema = new Schema({
     additionalInformation: {
         weight: {
             type: Number,
-            required: true
         },
         color: {
             type: String,
-            required: true
         },
         avaliables: {
             type: Number

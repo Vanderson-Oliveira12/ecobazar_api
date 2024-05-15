@@ -15,19 +15,19 @@ class AuthController {
       throw new Error("A chave JWT não está definida no ambiente!");
     }
 
-    try {
-      if (!email || !password) {
-        return res.send({ message: "Email e senha obrigatórios!" }).status(400);
-      }
+    if (!email || !password) {
+      return res.send({ message: "Email e senha obrigatórios!" }).status(400);
+    }
 
+    try {
       const user = await UserModel.findOne({ email: email }).select(
         "+password"
       );
 
       if (!user) {
         return res
-          .send({ message: "Não existe usuário com esse e-mail" })
-          .status(401);
+          .status(401)
+          .send({ message: "Não existe usuário com esse e-mail" });
       }
 
       const passwordIsEqual = await bcrypt.compare(password, user.password);
@@ -88,11 +88,11 @@ class AuthController {
   async recoveryPassword(req: Request, res: Response) {
     const { email } = req.body;
 
-    try {
-      if (!email) {
-        return res.send({ message: "Informe um email" }).status(400);
-      }
+    if (!email) {
+      return res.send({ message: "Informe um email" }).status(400);
+    }
 
+    try {
       const user = await UserModel.findOne({ email: email });
 
       if (!user) {
@@ -110,9 +110,11 @@ class AuthController {
         passwordRecoveryExpires: expires,
       });
 
-      await sendEmail('Recuperação de conta', "Texto de recuperação" , email)
-      
-      return res.send({message: "Foi enviado um link de recuperação, para o email registrado!"});
+      await sendEmail("Recuperação de conta", "Texto de recuperação", email);
+
+      return res.send({
+        message: "Foi enviado um link de recuperação, para o email registrado!",
+      });
     } catch (err) {
       console.log(err);
       return res.status(500).send({ message: "Erro interno do servidor!" });
@@ -123,13 +125,13 @@ class AuthController {
     const { email, recoveryToken, newPassword, newPasswordConfirm } = req.body;
     const now = new Date();
 
-    try {
-      if (!email || !recoveryToken || !newPassword || !newPasswordConfirm) {
-        return res
-          .send({ message: "Campos obrigatórios não foram informados!" })
-          .status(400);
-      }
+    if (!email || !recoveryToken || !newPassword || !newPasswordConfirm) {
+      return res
+        .send({ message: "Campos obrigatórios não foram informados!" })
+        .status(400);
+    }
 
+    try {
       const user = await UserModel.findOne({ email }).select(
         "+passwordRecoveryToken passwordRecoveryExpires"
       );
