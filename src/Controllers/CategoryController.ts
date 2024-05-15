@@ -44,7 +44,9 @@ class CategoryController {
     }
   }
 
-  listProductByCategories() {}
+  listProductByCategories() {
+    
+  }
 }
 
 export default new CategoryController();
