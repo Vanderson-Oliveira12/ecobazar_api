@@ -31,6 +31,10 @@ class CategoryController {
       const categoryExists = await CategoryModel.findOne({ name });
 
       if (categoryExists) {
+        if(fs.existsSync(path.join(__dirname, "../", "uploads", 'categories', fileName))) {
+          fs.unlinkSync(path.join(__dirname, "../", "uploads", 'categories', fileName));
+        }
+
         return res.status(400).send({ message: "Esta categoria já existe!" });
       }
 
@@ -70,16 +74,12 @@ class CategoryController {
         return res.status(400).json({ message: "Essa categoria não existe!" });
       }
 
-      fs.unlink(
-        path.join(__dirname, "../", "uploads", category.image),
-        (err) => {
-          console.log(err);
-        }
-      );
+      if(fs.existsSync(path.join(__dirname, "../", "uploads", 'categories', category.image))) {
+        fs.unlinkSync(path.join(__dirname, "../", "uploads", 'categories', category.image));
+      }
 
       category.name = name;
       category.image = fileName;
-
       category.save();
 
       return res.json(category);
@@ -104,12 +104,10 @@ class CategoryController {
       }
 
       await CategoryModel.findByIdAndDelete(categoryId);
-      fs.unlink(
-        path.join(__dirname, "../", "uploads", categoryExists.image),
-        (err) => {
-          console.log(err);
-        }
-      );
+
+      if(fs.existsSync(path.join(__dirname, "../", "uploads", 'categories', categoryExists.image))) {
+        fs.unlinkSync(path.join(__dirname, "../", "uploads", 'categories', categoryExists.image))
+      }
 
       res.send({ message: "Categoria excluída com sucesso!" });
     } catch (err) {

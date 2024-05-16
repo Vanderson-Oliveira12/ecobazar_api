@@ -1,13 +1,23 @@
 import multer from 'multer';
 import path from "path";
+import fs from "fs";
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, '../', 'uploads'));
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
+export function handleUpload(folderName: string) {
+
+    const folderPath = path.resolve(__dirname, "../", "uploads", folderName);
+
+    if (!fs.existsSync(folderPath)) {
+        fs.mkdirSync(folderPath);
     }
-})
+    
+    const storage = multer.diskStorage({
+        destination: (req, file, cb) => {
+            cb(null, folderPath);
+        },
+        filename: (req, file, cb) => {
+            cb(null, `${Date.now()}-${file.originalname}`);
+        }
+    })
 
-export const uploads = multer({storage: storage})
+    return multer({storage: storage});
+}
