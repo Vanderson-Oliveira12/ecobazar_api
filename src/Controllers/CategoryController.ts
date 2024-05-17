@@ -6,11 +6,22 @@ import { CategoryModel } from "../Models/CategoryModel";
 import mongoose, { Schema, mongo } from "mongoose";
 
 class CategoryController {
+
+  constructor() { 
+  }
+
+
   async listCategories(req: Request, res: Response) {
     try {
       const categories = await CategoryModel.find();
+      const newCategories = categories.map(category => {
+        return {
+          ...category.toJSON(),
+          image: `http://localhost:${process.env.PORT}/uploads/categories/${category.image}`
+        }
+      })
 
-      res.json(categories);
+      res.json(newCategories);
     } catch (err) {
       console.log(err);
       res.sendStatus(500);

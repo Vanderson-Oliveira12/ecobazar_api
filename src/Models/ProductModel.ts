@@ -61,7 +61,7 @@ const productSchema = new Schema({
     },
     customersFeedback: [{
         type: Schema.Types.ObjectId,
-        ref: "Customer"
+        ref: "Feedback"
     }]
 })
 

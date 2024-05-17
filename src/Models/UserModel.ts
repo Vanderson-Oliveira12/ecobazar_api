@@ -36,6 +36,9 @@ const UserSchema = new Schema({
         type: Schema.Types.String,
         required: true
     },
+    profession: {
+        type: String,
+    },
     email: {
         type: Schema.Types.String,
         required: true,
@@ -62,7 +65,13 @@ const UserSchema = new Schema({
     },
     billingAddress: {
         type: BillingAddress
-    }
+    },
+    myFeedbacks: [
+        {
+            type: Schema.Types.ObjectId,
+            ref: "Feedback"
+        }
+    ]
 })
 
 export const UserModel = model("User", UserSchema);
