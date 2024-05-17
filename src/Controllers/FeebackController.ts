@@ -2,10 +2,10 @@ import { Request, Response } from "express";
 import mongoose from "mongoose";
 
 import { ProductModel } from "../Models/ProductModel";
-import { UserModel } from "../Models/UserModel";
+import { CustomerModel } from "../Models/CustomerModel";
 import { FeedbackModel } from "../Models/FeedbackModel";
 
-export class CustomerController {
+export class FeedbackController {
 
    async setFeedbackCustomerInProduct(req: Request, res: Response) {
         
@@ -30,7 +30,7 @@ export class CustomerController {
                 avaliable: avaliable ? avaliable : 1,
             })
 
-            const customer = await UserModel.findById(customerId);
+            const customer = await CustomerModel.findById(customerId);
             const product = await ProductModel.findById(productId);
 
             if(!customer || !product) {
@@ -71,4 +71,4 @@ export class CustomerController {
     }
 }
 
-export default new CustomerController();
+export default new FeedbackController();

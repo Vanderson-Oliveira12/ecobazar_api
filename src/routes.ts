@@ -4,7 +4,8 @@ import AuthController from "./Controllers/AuthController";
 import CategoryController from "./Controllers/CategoryController";
 import { handleUpload } from "./middlewares/uploads";
 import ProductController from "./Controllers/ProductController";
-import CustomerController from "./Controllers/CustomerController";
+import FeedbackController from "./Controllers/FeebackController";
+import CostumerController from "./Controllers/CostumerController";
 
 
 
@@ -35,5 +36,11 @@ routes.delete("/product/delete/:productId", ProductController.deleteProduct);
 
 /* Customers */
 
-routes.get("/customer/feedbacks", CustomerController.getRandomFeedbacks);
-routes.post("/customer/feedback/:customerId/:productId", CustomerController.setFeedbackCustomerInProduct);
+routes.get("/customers", CostumerController.getAllCostumers);
+routes.get("/customer/:customerId", CostumerController.getCostumerById);
+routes.delete("/customer/delete/:customerId", CostumerController.deleteCostumer);
+
+
+/* Feedback */
+routes.get("/customer/feedbacks", FeedbackController.getRandomFeedbacks);
+routes.post("/customer/:customerId/product/:productId/feedback", FeedbackController.setFeedbackCustomerInProduct);

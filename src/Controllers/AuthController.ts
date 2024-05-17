@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { sendEmail } from "../services/sendMail";
 
-import { UserModel } from "../Models/UserModel";
+import { CustomerModel } from "../Models/CustomerModel";
 
 import crypto from "crypto";
 import bcrypt from "bcrypt";
@@ -20,7 +20,7 @@ class AuthController {
     }
 
     try {
-      const user = await UserModel.findOne({ email: email }).select(
+      const user = await CustomerModel.findOne({ email: email }).select(
         "+password"
       );
 
@@ -49,7 +49,6 @@ class AuthController {
 
       res.send({ accessToken: "Bearer " + payload }).status(200);
     } catch (err) {
-      console.log("Erro signin");
       console.log(err);
       return res
         .send({ message: "Erro interno, contate o suporte do sistema" })
@@ -65,20 +64,20 @@ class AuthController {
     }
 
     try {
-      const emailsExists = await UserModel.findOne({ email: email });
+      const emailsExists = await CustomerModel.findOne({ email: email });
       if (emailsExists) {
         return res.send({ message: "Email já registrado" }).status(403);
       }
 
       const passwordCript = await bcrypt.hash(password, 10);
-      const userCreated = await UserModel.create({
+      const userCreated = await CustomerModel.create({
         name,
         lastname,
         email,
         password: passwordCript,
       });
 
-      res.send({ message: userCreated }).status(201);
+      res.send({ message: "Usuário registrado com sucesso!" }).status(201);
     } catch (err) {
       console.log(err);
       return res.status(500).send({ message: "Erro interno do servidor!" });
@@ -93,7 +92,7 @@ class AuthController {
     }
 
     try {
-      const user = await UserModel.findOne({ email: email });
+      const user = await CustomerModel.findOne({ email: email });
 
       if (!user) {
         return res
@@ -105,7 +104,7 @@ class AuthController {
       const expires = new Date();
       expires.setMinutes(expires.getMinutes() + 5);
 
-      await UserModel.findByIdAndUpdate(user.id, {
+      await CustomerModel.findByIdAndUpdate(user.id, {
         passwordRecoveryToken: recoveryToken,
         passwordRecoveryExpires: expires,
       });
@@ -132,7 +131,7 @@ class AuthController {
     }
 
     try {
-      const user = await UserModel.findOne({ email }).select(
+      const user = await CustomerModel.findOne({ email }).select(
         "+passwordRecoveryToken passwordRecoveryExpires"
       );
 
@@ -156,7 +155,7 @@ class AuthController {
 
       const passwordHash = await bcrypt.hash(newPassword, 10);
 
-      await UserModel.findByIdAndUpdate(user.id, {
+      await CustomerModel.findByIdAndUpdate(user.id, {
         password: passwordHash,
       });
 

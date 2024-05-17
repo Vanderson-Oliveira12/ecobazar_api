@@ -1,36 +1,16 @@
 import { Schema, model } from "mongoose";
+import { BillingAddress } from "../Schemas/BillingAddress";
 
-const BillingAddress = new Schema({
-    name: {
-        type: Schema.Types.String
-    },
-    lastname: {
-        type: Schema.Types.String
-    },
-    companyName: {
-        type: Schema.Types.String
-    },
-    street: {
-        type: Schema.Types.String
-    },
-    country: {
-        type: Schema.Types.String
-    },
-    zipcode: {
-        type: Schema.Types.String
-    },
-    email: {
-        type: Schema.Types.String
-    },
-    phone: {
-        type: Schema.Types.String
-    }
-})
-
-const UserSchema = new Schema({
+const CustomerSchema = new Schema({
     name: {
         type: Schema.Types.String,
         required: true
+    },
+    role: {
+        enum: ['customer', 'admin'],
+        default: "customer",
+        type: String,
+        required: true,
     },
     lastname: {
         type: Schema.Types.String,
@@ -71,7 +51,13 @@ const UserSchema = new Schema({
             type: Schema.Types.ObjectId,
             ref: "Feedback"
         }
+    ],
+    myOrders: [
+        {
+            type: Schema.Types.ObjectId,
+            ref: "Order"
+        }
     ]
 })
 
-export const UserModel = model("User", UserSchema);
+export const CustomerModel = model("Customer", CustomerSchema);

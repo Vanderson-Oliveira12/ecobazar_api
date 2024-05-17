@@ -3,7 +3,7 @@ import { model, Schema } from "mongoose";
 const FeedbackSchema = new Schema({
     customer: {
         type: Schema.Types.ObjectId,
-        ref: "User"
+        ref: "Customer"
     },
     product: {
         type: Schema.Types.ObjectId,
