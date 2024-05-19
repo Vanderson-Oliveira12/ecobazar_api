@@ -6,7 +6,8 @@ import { handleUpload } from "./middlewares/uploads";
 import ProductController from "./Controllers/ProductController";
 import FeedbackController from "./Controllers/FeebackController";
 import CostumerController from "./Controllers/CostumerController";
-
+import NewsletterController from "./Controllers/NewsletterController";
+import { emailBodyRules } from "./middlewares/emailValidator";
 
 
 export const routes: Router = express.Router();
@@ -44,3 +45,9 @@ routes.delete("/customer/delete/:customerId", CostumerController.deleteCostumer)
 /* Feedback */
 routes.get("/customer/feedbacks", FeedbackController.getRandomFeedbacks);
 routes.post("/customer/:customerId/product/:productId/feedback", FeedbackController.setFeedbackCustomerInProduct);
+
+/* Newsletter */
+
+routes.get("/newsletter", NewsletterController.getAllEmails);
+routes.get("/newsletter/offers", NewsletterController.sendOffersByEmails);
+routes.post("/newsletter/register", emailBodyRules, NewsletterController.registerEmailByNewsletter);
