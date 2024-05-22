@@ -23,7 +23,6 @@ const OrderSchema = new Schema({
     totalPrice: {
         type: Number,
         required: true,
-        min: 0
     },
     methodPayment: {
         type: String,
@@ -38,7 +37,8 @@ const OrderSchema = new Schema({
     orderStatus: {
         enum: ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"],
         type: String,
-        required: true
+        required: true,
+        default: "PENDING"
     },
     billingAddress: {
         type: BillingAddress,

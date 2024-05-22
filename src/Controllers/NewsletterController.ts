@@ -59,7 +59,6 @@ class NewsletterController {
     async getAllEmails(req: Request, res: Response) { 
 
         try {
-
             const emails = await NewsletterModel.find().select("email -_id");
 
             return res.json(emails);

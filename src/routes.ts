@@ -8,6 +8,7 @@ import FeedbackController from "./Controllers/FeebackController";
 import CostumerController from "./Controllers/CostumerController";
 import NewsletterController from "./Controllers/NewsletterController";
 import { emailBodyRules } from "./middlewares/emailValidator";
+import OrderController from "./Controllers/OrderController";
 
 
 export const routes: Router = express.Router();
@@ -51,3 +52,7 @@ routes.post("/customer/:customerId/product/:productId/feedback", FeedbackControl
 routes.get("/newsletter", NewsletterController.getAllEmails);
 routes.get("/newsletter/offers", NewsletterController.sendOffersByEmails);
 routes.post("/newsletter/register", emailBodyRules, NewsletterController.registerEmailByNewsletter);
+
+/* Orders */
+
+routes.post("/order/create", OrderController.createOrder);

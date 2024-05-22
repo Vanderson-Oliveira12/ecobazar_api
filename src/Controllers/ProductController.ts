@@ -224,7 +224,7 @@ class ProductController {
     let priceOriginal = price;
     let priceDescont = (price * descontPercent) / 100;
 
-    return priceOriginal - priceDescont;
+    return Math.floor(priceOriginal - priceDescont);
   }
 }
 
