@@ -10,6 +10,63 @@ interface ProductInfo {
 }
 
 class OrderController {
+
+  async getAllOrders(req: Request, res: Response) { 
+    try { 
+      
+      const orders = await OrderModel.find().populate({
+        path: "customer",
+        select: "-myFeedbacks -myOrders -__v -role",
+      }).populate({
+        path: "products",
+        populate: {
+          path: "product"
+        }
+      })
+
+      return res.status(200).json(orders);
+    } catch(err) {
+      console.log(err)
+      res.sendStatus(500);
+    }
+  }
+
+  async getOrdersByStatus(req: Request, res: Response) { 
+
+    const { value } = req.query;
+    const statusValid = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"]
+
+    const isStatusValid = statusValid.findIndex(status => status == value);
+
+    if(isStatusValid == -1) { 
+      return res.status(400).json({message: "Informe valores de status válido! " + statusValid})
+    }
+
+
+    try {
+
+      const orders = await OrderModel.find().where({orderStatus: value})
+      .populate({
+        path: "customer",
+        select: "-myFeedbacks -myOrders -__v -role"
+      })
+      .populate({
+        path: "products",
+        populate: {
+          path: "product",
+          select: "-__v"
+        }
+      })
+
+      res.status(200).json(orders)
+
+    } catch(err) {
+      console.log(err)
+      res.sendStatus(500);
+    }
+  }
+
+
   async createOrder(req: Request, res: Response) {
     const body = req.body;
     const { customer: customerId, products: productsId } = req.body;

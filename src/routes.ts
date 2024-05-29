@@ -55,4 +55,6 @@ routes.post("/newsletter/register", emailBodyRules, NewsletterController.registe
 
 /* Orders */
 
+routes.get("/orders", OrderController.getAllOrders);
+routes.get("/orders/status", OrderController.getOrdersByStatus);
 routes.post("/order/create", OrderController.createOrder);
