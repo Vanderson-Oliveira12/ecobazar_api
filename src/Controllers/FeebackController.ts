@@ -5,7 +5,7 @@ import { ProductModel } from "../Models/ProductModel";
 import { CustomerModel } from "../Models/CustomerModel";
 import { FeedbackModel } from "../Models/FeedbackModel";
 
-export class FeedbackController {
+class FeedbackController {
 
    async setFeedbackCustomerInProduct(req: Request, res: Response) {
         
