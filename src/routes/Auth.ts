@@ -8,3 +8,4 @@ AuthRoutes.get("/auth/signin", AuthController.signIn);
 AuthRoutes.post("/auth/signup", AuthController.signUp);
 AuthRoutes.get("/auth/recoveryPassword", AuthController.recoveryPassword);
 AuthRoutes.post("/auth/createNewPassword", AuthController.createNewPassword);
+AuthRoutes.get("/auth/refresh/token", AuthController.getRefreshToken);

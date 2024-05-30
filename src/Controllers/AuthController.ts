@@ -5,13 +5,14 @@ import { CustomerModel } from "../Models/CustomerModel";
 
 import crypto from "crypto";
 import bcrypt from "bcrypt";
-import { sign } from "jsonwebtoken";
+import { sign, verify } from "jsonwebtoken";
+import { CustomJwtPayload } from "../interfaces/roles";
 
 class AuthController {
   async signIn(req: Request, res: Response) {
     const { email, password } = req.body;
 
-    if (!process.env.JWT_SECRET) {
+    if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
       throw new Error("A chave JWT não está definida no ambiente!");
     }
 
@@ -38,16 +39,28 @@ class AuthController {
           .status(401);
       }
 
-      const payload = sign(
+      const accessToken = sign(
         {
           id: user.id,
           email: user.email,
+          role: user.role
         },
         process.env.JWT_SECRET,
-        { expiresIn: 3600 }
+        { expiresIn: '15min' }
       );
 
-      res.send({ accessToken: "Bearer " + payload }).status(200);
+      const refreshToken = sign({
+        id: user.id,
+        email: user.email,
+        role: user.role
+      }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d'})
+
+      const data = {
+        accessToken: "Bearer "+ accessToken,
+        refreshToken
+      }
+
+      res.send(data).status(200);
     } catch (err) {
       console.log(err);
       return res
@@ -70,14 +83,14 @@ class AuthController {
       }
 
       const passwordCript = await bcrypt.hash(password, 10);
-      const userCreated = await CustomerModel.create({
+      await CustomerModel.create({
         name,
         lastname,
         email,
         password: passwordCript,
       });
 
-      res.send({ message: "Usuário registrado com sucesso!" }).status(201);
+      res.status(201).send({ message: "Usuário registrado com sucesso!" });
     } catch (err) {
       console.log(err);
       return res.status(500).send({ message: "Erro interno do servidor!" });
@@ -165,6 +178,70 @@ class AuthController {
       return res.status(500).send({ message: "Erro interno do servidor!" });
     }
   }
+
+  async getRefreshToken(req: Request, res: Response) { 
+
+    const accessToken = req.headers['authorization'];
+    const refreshToken = req.headers['refresh-token'] as string;
+
+    if(!accessToken || !refreshToken) {
+      return res.status(403).json({message: "Token e refresh token obrigatório!"})
+    }
+
+    if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
+      throw new Error("A chave JWT não está definida no ambiente!");
+    }
+
+
+
+    try {
+      const refreshTokenDecoded = verify(refreshToken, process.env.JWT_REFRESH_SECRET) as CustomJwtPayload;
+      const accessTokenDecoded = verify(accessToken, process.env.JWT_SECRET, {
+        ignoreExpiration: true
+      }) as CustomJwtPayload
+
+      if(accessTokenDecoded.id != refreshTokenDecoded.id) {
+        return res.status(401).json({message: "O refresh token não pertence ao usuário fornecido!"})
+      }
+
+      const user = await CustomerModel.findById(accessTokenDecoded.id);
+
+      if(!user) {
+        return res.status(404).json({message: "Usuário não encontrado, para gerar o access-token"})
+      }
+
+      const newAccessToken = sign(
+        {
+          id: user._id,
+          email: user.email,
+          role: user.role
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '15min' }
+      );
+
+      const data = {
+        accessToken: "Bearer "+ newAccessToken,
+        refreshToken
+      }
+
+      res.status(200).json(data)
+
+    } catch(err) {
+      const error = err as Error;
+
+      if(error.message.includes('invalid')) {
+        return res.status(401).json({message: "token ou refresh token fornecido não é válido!"})
+      } 
+    
+      if(error.message.includes("expired")) { 
+          return res.status(401).json({message: "refresh token expirado"})
+      }
+
+      return res.status(500).json({message: "Erro interno!"});
+    }
+  }
+
 }
 
 export default new AuthController();
