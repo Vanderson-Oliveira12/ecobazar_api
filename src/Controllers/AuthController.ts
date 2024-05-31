@@ -192,8 +192,6 @@ class AuthController {
       throw new Error("A chave JWT não está definida no ambiente!");
     }
 
-
-
     try {
       const refreshTokenDecoded = verify(refreshToken, process.env.JWT_REFRESH_SECRET) as CustomJwtPayload;
       const accessTokenDecoded = verify(accessToken, process.env.JWT_SECRET, {

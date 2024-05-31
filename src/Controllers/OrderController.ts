@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { CustomerModel } from "../Models/CustomerModel";
 import { ProductModel } from "../Models/ProductModel";
 import { OrderModel } from "../Models/OrderModel";
+import mongoose, { model } from "mongoose";
 
 interface ProductInfo {
     productId: string;
@@ -160,6 +161,77 @@ class OrderController {
           return res.status(404).json({ message: error.message });
         }
         return res.sendStatus(500);
+      }
+    }
+
+    async getOrderById(req: Request, res: Response) { 
+      const { orderId } = req.params;
+
+      if(!mongoose.isValidObjectId(orderId)) { 
+        return res.status(400).json({message: "O id fornecido não é válido!"})
+      }
+
+      try { 
+
+        const orderExisting = await OrderModel.findById(orderId)
+        .populate({
+          path: "customer",
+          select: "-role -myFeedbacks -myOrders -__v"
+        })
+        .populate({
+          path: "products",
+          populate: "product"
+        })
+
+        if(!orderExisting) { 
+          return res.status(404).json({message: "A ordem solicitada não foi encontrada."})
+        }
+
+        return res.status(200).json(orderExisting);
+      } catch(err) { 
+        const error = err as Error;
+
+        console.log(error.message)
+        return res.status(500).json({message: "Erro interno do servidor!"})
+      }
+
+    }
+    
+    async getOrdersByUser(req: Request, res: Response) { 
+      
+      const { costumerId } = req.params;
+
+      if(!mongoose.isValidObjectId(costumerId)) {
+        return res.status(400).json({message: "O Id fornecido não é válido!"})
+      }
+
+      try {
+
+        const userExisting = await CustomerModel.findById(costumerId);
+
+        if(!userExisting) { 
+          return res.status(404).json({message: "Usuário não encontrado!"})
+        }
+
+        const userOrders = await OrderModel.find().where({ customer: userExisting.id })
+        .populate({
+          path: "customer",
+          select: "-__v -role -myFeedbacks -myOrders"
+        })
+        .populate({
+          path: "products",
+          populate: "product"
+        })
+
+        if(!userOrders.length) { 
+          return res.status(404).json({message: "O usuário não possui orders!"})
+        }
+
+        return res.status(200).json(userOrders);
+      } catch(err) {
+        const error = err as Error
+        console.log(error.message)
+        return res.status(500).json({message: "Erro interno"})
       }
     }
   }
