@@ -3,6 +3,8 @@ import { CustomerModel } from "../Models/CustomerModel";
 import { ProductModel } from "../Models/ProductModel";
 import { OrderModel } from "../Models/OrderModel";
 import mongoose, { model } from "mongoose";
+import { OrderStatus } from "../interfaces/orderStatus";
+import { PaymentStatus } from "../interfaces/paymentStatus";
 
 interface ProductInfo {
     productId: string;
@@ -113,18 +115,23 @@ class OrderController {
       const products: ProductInfo[] = await Promise.all(
         productsId.map(async (product: any) => {
           const productId = product.product;
+
+          if(!mongoose.isValidObjectId(productId)) {
+            throw new Error("o Id do produto é inválido!")
+          }
+
           const isProductExists = await ProductModel.findById(productId);
 
           if (!isProductExists) {
             throw new Error(`Produto com id ${productId} não existe.`);
           }
 
-          const quantityProductInStock = isProductExists.quantityInStock;
+          const hasProductInStock = isProductExists.quantityInStock;
           const productPrice = isProductExists.priceDescont
             ? isProductExists.priceDescont
             : isProductExists.price;
 
-          if (quantityProductInStock <= 0) {
+          if (hasProductInStock <= 0) {
             throw new Error(`O produto ${isProductExists.title} não possui quantidade em estoque!`);
           }
 
@@ -234,6 +241,44 @@ class OrderController {
         return res.status(500).json({message: "Erro interno"})
       }
     }
+
+
+    async changePaymentStatusForOrder(req: Request, res: Response) { 
+
+      const {orderId} = req.params;
+      const { newStatusPayment } = req.body;
+      const statusPaymentValid: PaymentStatus[] = ["CANCELLED", "PENDING", "PROCESSING", "APPROVED", "REJECTED"];
+
+      if(!mongoose.isValidObjectId(orderId)) { 
+        return res.status(400).json({message: "Tipo de id não permitido!"})
+      }
+
+      if(!newStatusPayment || !statusPaymentValid.includes(newStatusPayment)) { 
+        return res.status(400).json({message: "Valor de order não informado, ou valor informado inválido"})
+      }
+
+      try { 
+        const orderExisting = await OrderModel.findById(orderId);
+
+        if(!orderExisting) {
+          return res.status(404).json({message: "Order não existente!"})
+        }
+
+        orderExisting.paymentStatus = newStatusPayment;
+
+        await orderExisting.save();
+
+        return res.status(200).json({message: "Status de pagamento alterado com sucesso! " + orderExisting.paymentStatus})
+
+      } catch(err) {
+        const error = err as Error;
+
+        console.log(error.message)
+
+        return res.status(500).json({message: "Erro interno!"})
+      }
+    }
   }
+
 
 export default new OrderController();
