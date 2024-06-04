@@ -90,8 +90,8 @@ class OrderController {
 
   async createOrder(req: Request, res: Response) {
     const body = req.body;
-    const { customerId, products: productsId } = req.body;
-
+    const { customerId, products } = req.body;
+    
     const orderInfor: Order = {
       methodPayment: body.methodPayment,
       paymentStatus: "PENDING" as PaymentStatus,
@@ -106,7 +106,7 @@ class OrderController {
     };
 
 
-    if (!Array.isArray(productsId) || productsId.length === 0) {
+    if (!Array.isArray(products) || products.length === 0) {
       return res
         .status(400)
         .json({ message: "Lista de produtos inválida ou vazia" });
@@ -119,48 +119,12 @@ class OrderController {
         return res.status(404).json({ message: "Esse usuário não existe!" });
       }
 
-      const productsPurchased: ProductInfo[] = await Promise.all(
-        productsId.map(async (productItem: any) => {
-          const productId = productItem.product;
+      const productsList: Product[] = products.map((product) => ({
+        productId: product.product,
+        quantity: product.quantity
+      }))
 
-          if(!mongoose.isValidObjectId(productId)) {
-            throw new Error("o Id do produto é inválido!")
-          }
-
-          const product = await ProductModel.findById(productId);
-
-          if (!product) {
-            throw new Error(`Produto com id ${productId} não existe.`);
-          }
-
-          const currentQuantityProductInStock = product.quantityInStock;
-          const quantityProductCustomerPurchase = productItem.quantity;
-          const hasProductInStock = product.quantityInStock > 0;
-          const productPrice = product.priceDescont
-            ? product.priceDescont
-            : product.price;
-
-          if (!hasProductInStock) {
-            throw new Error(`O produto ${product.title} não possui quantidade em estoque!`);
-          }
-
-          if(quantityProductCustomerPurchase > currentQuantityProductInStock) { 
-            throw new Error(`O Produto ${product.title} não possui a quantidade disponível para compra!`)
-          }
-
-          const newQuantityProductInStock = currentQuantityProductInStock - quantityProductCustomerPurchase; 
-
-          product.quantityInStock = newQuantityProductInStock;
-
-          product.save();
-
-          return {
-            productId: product._id.toString(),
-            price: productPrice,
-            quantity: quantityProductCustomerPurchase,
-          };
-        })
-      );
+      const productsPurchased = await this.getProductInStock(productsList);
 
       const totalProductsPrice = productsPurchased.reduce((acc, product) => {
         return roundToTwoDecimals(acc + (product.price  * product.quantity))
@@ -174,7 +138,7 @@ class OrderController {
       }
 
        const orderCreated = await OrderModel.create(data);
-    
+
        return res.status(201).json({ message: "Pedido criado com sucesso!"});
     } catch (err) {
         const error = err as Error;
@@ -280,7 +244,7 @@ class OrderController {
         const orderExisting = await OrderModel.findById(orderId);
 
         if(!orderExisting) {
-          return res.status(404).json({message: "Order não existente!"})
+          return res.status(404).json({message: "Pedido não existente!"})
         }
 
         orderExisting.paymentStatus = newStatusPayment;
@@ -292,7 +256,9 @@ class OrderController {
       } catch(err) {
         const error = err as Error;
 
-        console.log(error.message)
+        if(error.message) { 
+          return res.status(400).json({message: error.message})
+        }
 
         return res.status(500).json({message: "Erro interno!"})
       }
@@ -300,7 +266,7 @@ class OrderController {
 
     async changeOrderStatus(req: Request, res: Response) { 
 
-      const {orderId} = req.params;
+      const { orderId } = req.params;
       const newOrderStatus = req.body.newOrderStatus as OrderStatus;
       
       const orderStatusValid: OrderStatus[] = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
@@ -318,41 +284,47 @@ class OrderController {
         const orderExisting = await OrderModel.findById(orderId);
 
         if(!orderExisting) {
-          return res.status(404).json({message: "Order não encontrada!"})
+          return res.status(404).json({message: "Pedido não encontrado!"})
         }
 
-        const orderStatusPayment: PaymentStatus = orderExisting.paymentStatus;
-        const isPaymentApproved = orderStatusPayment == 'APPROVED';
+        const currentOrderStatusPayment: PaymentStatus = orderExisting.paymentStatus;
+        const isPaymentApproved = currentOrderStatusPayment == 'APPROVED';
         const currentStatusOrder = orderExisting.orderStatus;
+        const productsList: Product[] = orderExisting.products.map((product) => ({
+          productId: product.product.toString(),
+          quantity: product.quantity
+        }));
+
+        if(currentStatusOrder == "CANCELLED") { 
+          return res.status(400).json({message: "Pedido já cancelado, não sendo disponível mudar o status!"})
+        }
 
         if(!isPaymentApproved && (newOrderStatus == 'SHIPPED' || newOrderStatus == 'DELIVERED')) { 
           return res.status(400).json({message: "Pagamento não aprovado, você não pode usar o STATUS SHIPPED OU DELIVERED"})
         }
 
         if(newOrderStatus == 'SHIPPED') {
-          const products: Product[] = orderExisting.products.map((product) => ({
-            productId: product.product.toString(),
-            quantity: product.quantity
-          }))
-
-          const productsPurchased = await this.getProductInStock(products);
-
-          return res.status(200).json({message: "Compra efetuada com sucesso!"})
+              orderExisting.orderStatus = newOrderStatus;
+              await orderExisting.save();
+          return res.status(200).json({message: "Pedido enviado com sucesso!"})
         }
 
-        const isCancelStatus = (currentStatusOrder == "PENDING" || currentStatusOrder == "PROCESSING") && newOrderStatus == 'CANCELLED';
+        const isOrderCancelable = (currentStatusOrder == "PENDING" || currentStatusOrder == "PROCESSING") && newOrderStatus == 'CANCELLED';
 
-        if(isCancelStatus) { 
-          const products: Product[] = orderExisting.products.map(product => ({
-            productId: product.product.toString(),
-            quantity: product.quantity
-          }))
+        if(isOrderCancelable) { 
+          const productsCancelled = await this.cancelProductAndSetInStock(productsList);
+   
+          orderExisting.orderStatus = newOrderStatus;
 
-          const productsCancelled = await this.cancelProductAndSetInStock(products);
-
-          return res.status(200).json({message: "Compra cancelada com sucesso!"})
+          await orderExisting.save();
+          return res.status(200).json({message: "Pedido cancelado com sucesso!"})
         }
 
+        orderExisting.orderStatus = newOrderStatus;
+
+        await orderExisting.save();
+
+        return res.status(200).json({message: "Status do pedido alterado com sucesso! Status atual: " + newOrderStatus})
 
       } catch(err) {
         const error = err as Error;
@@ -361,6 +333,7 @@ class OrderController {
     }
 
     private async getProductInStock(products: Product[]) { 
+
       const isProductIdValid = products.every((product) => mongoose.isValidObjectId(product.productId));
 
       if(!isProductIdValid) { 
@@ -368,34 +341,57 @@ class OrderController {
       }
 
       try { 
-          const productsExisting = await Promise.all(products.map(async productItem => {
-          const product = await ProductModel.findById(productItem.productId);
-          const quantityPurchased = productItem.quantity;
 
-          if(!product) { 
-            throw new Error("Produto não encontrado!");
-          }
+        const productsPurchased: ProductInfo[] = await Promise.all(products.map(async (productItem: Product) => {
+            const productId = productItem.productId;
+  
+            if(!mongoose.isValidObjectId(productId)) {
+              throw new Error("o Id do produto é inválido!")
+            }
+  
+            const product = await ProductModel.findById(productId);
+  
+            if (!product) {
+              throw new Error(`Produto com id ${productId} não existe.`);
+            }
+  
+            const currentQuantityProductInStock = product.quantityInStock;
+            const quantityProductCustomerPurchase = productItem.quantity;
+            const hasProductInStock = currentQuantityProductInStock > 0;
+            const productPrice = product.priceDescont
+              ? product.priceDescont
+              : product.price;
+  
+            if (!hasProductInStock) {
+              throw new Error(`O produto ${product.title} não possui quantidade em estoque!`);
+            }
+  
+            if(quantityProductCustomerPurchase > currentQuantityProductInStock) { 
+              throw new Error(`O Produto ${product.title} não possui a quantidade disponível para compra!`)
+            }
+  
+            const newQuantityProductInStock = currentQuantityProductInStock - quantityProductCustomerPurchase; 
+  
+            product.quantityInStock = newQuantityProductInStock;
+  
+            await product.save();
+  
+            return {
+              productId: product._id.toString(),
+              price: productPrice,
+              quantity: quantityProductCustomerPurchase,
+            };
+          })
+        );
 
-          const hasProductInStock = product.quantityInStock > 0;
+        return productsPurchased;
 
-          if(!hasProductInStock) { 
-            throw new Error("Produto sem quantidade em estoque!");
-          }
-
-          const newQuantityInStock = product.quantityInStock - quantityPurchased;
-
-          product.quantityInStock = newQuantityInStock;
-
-          product.save();
-
-          return product;
-        }))
-
-        return productsExisting;
       } catch(err) {
         const error = err as Error;
-        throw new Error(error.message);
+
+        throw new Error(error.message)
       }
+
     }
 
     private async cancelProductAndSetInStock(products: Product[]) {
@@ -410,13 +406,13 @@ class OrderController {
 
         const productsCancelled = await Promise.all(products.map(async (productItem) => {
           const productExisting = await ProductModel.findById(productItem.productId);
-          const productQuantity = productItem.quantity;
+          const productPurchaseQuantity = productItem.quantity;
 
           if(!productExisting) { 
             throw new Error("Produto não encontrado!");
           }
 
-          const newProductQuantityInStock = productExisting.quantityInStock + productQuantity;
+          const newProductQuantityInStock = productExisting.quantityInStock + productPurchaseQuantity;
 
           productExisting.quantityInStock = newProductQuantityInStock;
 

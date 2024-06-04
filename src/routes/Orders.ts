@@ -8,7 +8,7 @@ export const OrderRoutes: Router = express.Router();
 OrderRoutes.get("/orders", OrderController.getAllOrders);
 OrderRoutes.get("/orders/customer/:costumerId", OrderController.getOrdersByUser);
 OrderRoutes.get("/order/:orderId", OrderController.getOrderById);
-OrderRoutes.post("/order/create", orderBodyRules, handleErrors, OrderController.createOrder);
+OrderRoutes.post("/order/create", orderBodyRules, handleErrors, OrderController.createOrder.bind(OrderController));
 
 OrderRoutes.get("/orders/status", OrderController.getOrdersByStatus);
 OrderRoutes.post("/order/status/payment/update/:orderId", OrderController.changePaymentStatusForOrder);
