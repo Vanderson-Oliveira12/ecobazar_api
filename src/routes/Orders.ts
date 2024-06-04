@@ -9,4 +9,5 @@ OrderRoutes.get("/order/:orderId", OrderController.getOrderById);
 OrderRoutes.post("/order/create", OrderController.createOrder);
 
 OrderRoutes.get("/orders/status", OrderController.getOrdersByStatus);
-OrderRoutes.post("/order/status/update/:orderId", OrderController.changePaymentStatusForOrder);
+OrderRoutes.post("/order/status/payment/update/:orderId", OrderController.changePaymentStatusForOrder);
+OrderRoutes.post("/order/status/update/:orderId", OrderController.changeOrderStatus.bind(OrderController));

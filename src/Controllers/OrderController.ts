@@ -6,10 +6,26 @@ import mongoose, { model } from "mongoose";
 import { OrderStatus } from "../interfaces/orderStatus";
 import { PaymentStatus } from "../interfaces/paymentStatus";
 
-interface ProductInfo {
-    productId: string;
+interface Product {
+  productId: string, 
+  quantity: number
+}
+
+interface ProductInfo extends Product {
     price: number;
-    quantity: number;
+}
+
+interface Order {
+    methodPayment: string;
+    paymentStatus: PaymentStatus;
+    orderStatus: OrderStatus;
+    billingAddress: {
+        street: string;
+        city: string;
+        state: string;
+        zip: string;
+        country: string;
+      }
 }
 
 class OrderController {
@@ -74,10 +90,10 @@ class OrderController {
     const body = req.body;
     const { customer: customerId, products: productsId } = req.body;
 
-    const addressInfor = {
+    const orderInfor: Order = {
       methodPayment: body.methodPayment,
-      paymentStatus: body.paymentStatus,
-      orderStatus: body.orderStatus,
+      paymentStatus: "PENDING" as PaymentStatus,
+      orderStatus: "PENDING" as OrderStatus,
       billingAddress: {
         street: body.billingAddress.street,
         city: body.billingAddress.city,
@@ -87,14 +103,14 @@ class OrderController {
       },
     };
 
-    if(!addressInfor.methodPayment ||
-        !addressInfor.paymentStatus ||
-        !addressInfor.orderStatus ||
-        !addressInfor.billingAddress.street ||
-        !addressInfor.billingAddress.city ||
-        !addressInfor.billingAddress.state ||
-        !addressInfor.billingAddress.zip ||
-        !addressInfor.billingAddress.country
+    if(!orderInfor.methodPayment ||
+        !orderInfor.paymentStatus ||
+        !orderInfor.orderStatus ||
+        !orderInfor.billingAddress.street ||
+        !orderInfor.billingAddress.city ||
+        !orderInfor.billingAddress.state ||
+        !orderInfor.billingAddress.zip ||
+        !orderInfor.billingAddress.country
     ) {
         return res.status(400).json({message: "Preencha todas informações de localidade e métodos de pagamento!"})
     }
@@ -152,7 +168,7 @@ class OrderController {
         customer: customerId,
         products: [...products].map(product => ({product: product.productId, quantity: product.quantity})),
         totalPrice: totalProductsPrice,
-        ...addressInfor
+        ...orderInfor
       }
 
        await OrderModel.create(data);
@@ -254,7 +270,7 @@ class OrderController {
       }
 
       if(!newStatusPayment || !statusPaymentValid.includes(newStatusPayment)) { 
-        return res.status(400).json({message: "Valor de order não informado, ou valor informado inválido"})
+        return res.status(400).json({message: "Valor de order não informado, ou valor informado inválido "+ statusPaymentValid})
       }
 
       try { 
@@ -278,6 +294,142 @@ class OrderController {
         return res.status(500).json({message: "Erro interno!"})
       }
     }
+
+    async changeOrderStatus(req: Request, res: Response) { 
+
+      const {orderId} = req.params;
+      const newOrderStatus = req.body.newOrderStatus as OrderStatus;
+      
+      const orderStatusValid: OrderStatus[] = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
+
+      if(!orderId || !mongoose.isValidObjectId(orderId)) {
+        return res.status(400).json({message: "ID inválido ou não fornecido!"})
+      }
+
+      if(!newOrderStatus || !orderStatusValid.includes(newOrderStatus)) { 
+        return res.status(400).json({message: "Status fornecido não é válido. "+ orderStatusValid})
+      }
+
+      try { 
+
+        const orderExisting = await OrderModel.findById(orderId);
+
+        if(!orderExisting) {
+          return res.status(404).json({message: "Order não encontrada!"})
+        }
+
+        const orderStatusPayment: PaymentStatus = orderExisting.paymentStatus;
+        const isPaymentApproved = orderStatusPayment == 'APPROVED';
+        const currentStatusOrder = orderExisting.orderStatus;
+
+        if(!isPaymentApproved && (newOrderStatus == 'SHIPPED' || newOrderStatus == 'DELIVERED')) { 
+          return res.status(400).json({message: "Pagamento não aprovado, você não pode usar o STATUS SHIPPED OU DELIVERED"})
+        }
+
+        if(newOrderStatus == 'SHIPPED') {
+          const products: Product[] = orderExisting.products.map((product) => ({
+            productId: product.product.toString(),
+            quantity: product.quantity
+          }))
+
+          const productsPurchased = await this.getProductInStock(products);
+
+          return res.status(200).json({message: "Compra efetuada com sucesso!"})
+        }
+
+        const isCancelStatus = (currentStatusOrder == "PENDING" || currentStatusOrder == "PROCESSING") && newOrderStatus == 'CANCELLED';
+
+        if(isCancelStatus) { 
+          const products: Product[] = orderExisting.products.map(product => ({
+            productId: product.product.toString(),
+            quantity: product.quantity
+          }))
+
+          const productsCancelled = await this.cancelProductAndSetInStock(products);
+
+          return res.status(200).json({message: "Compra cancelada com sucesso!"})
+        }
+
+
+      } catch(err) {
+        const error = err as Error;
+        return res.status(500).json({message: error.message || "Erro interno!"})
+      }
+    }
+
+    private async getProductInStock(products: Product[]) { 
+      const isProductIdValid = products.every((product) => mongoose.isValidObjectId(product.productId));
+
+      if(!isProductIdValid) { 
+        throw new Error("Produto com id inválido!")
+      }
+
+      try { 
+          const productsExisting = await Promise.all(products.map(async productItem => {
+          const product = await ProductModel.findById(productItem.productId);
+          const quantityPurchased = productItem.quantity;
+
+          if(!product) { 
+            throw new Error("Produto não encontrado!");
+          }
+
+          const hasProductInStock = product.quantityInStock > 0;
+
+          if(!hasProductInStock) { 
+            throw new Error("Produto sem quantidade em estoque!");
+          }
+
+          const newQuantityInStock = product.quantityInStock - quantityPurchased;
+
+          product.quantityInStock = newQuantityInStock;
+
+          product.save();
+
+          return product;
+        }))
+
+        return productsExisting;
+      } catch(err) {
+        const error = err as Error;
+        throw new Error(error.message);
+      }
+    }
+
+    private async cancelProductAndSetInStock(products: Product[]) {
+      
+      const isProductIdValid = products.every((product => !mongoose.isValidObjectId(product.productId)));
+
+      if(isProductIdValid) { 
+        throw new Error("Produto com id inválido!")
+      }
+
+      try {
+
+        const productsCancelled = Promise.all(products.map(async (productItem) => {
+          const productExisting = await ProductModel.findById(productItem.productId);
+          const productQuantity = productItem.quantity;
+
+          if(!productExisting) { 
+            throw new Error("Produto não encontrado!");
+          }
+
+          const newProductQuantityInStock = productExisting.quantityInStock + productQuantity;
+
+          productExisting.quantityInStock = newProductQuantityInStock;
+
+          productExisting.save();
+
+          return productExisting;
+        }))
+
+        return productsCancelled;
+      } catch(err) { 
+        const error = err as Error;
+
+        throw new Error(error.message);
+      }
+    }
+
   }
 
 

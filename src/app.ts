@@ -26,8 +26,3 @@ connection
     console.log("ERRO AO CONECTAR NO BANCO DE DADOS");
     console.log(x);
   });
-
-
-  export function sum(a: number, b: number) :number {
-    return a + b
-  }
