@@ -5,6 +5,8 @@ import { OrderModel } from "../Models/OrderModel";
 import mongoose, { model } from "mongoose";
 import { OrderStatus } from "../interfaces/orderStatus";
 import { PaymentStatus } from "../interfaces/paymentStatus";
+import { validationResult } from "express-validator";
+import { roundToTwoDecimals } from "../utils/roundNumber";
 
 interface Product {
   productId: string, 
@@ -88,7 +90,7 @@ class OrderController {
 
   async createOrder(req: Request, res: Response) {
     const body = req.body;
-    const { customer: customerId, products: productsId } = req.body;
+    const { customerId, products: productsId } = req.body;
 
     const orderInfor: Order = {
       methodPayment: body.methodPayment,
@@ -103,17 +105,6 @@ class OrderController {
       },
     };
 
-    if(!orderInfor.methodPayment ||
-        !orderInfor.paymentStatus ||
-        !orderInfor.orderStatus ||
-        !orderInfor.billingAddress.street ||
-        !orderInfor.billingAddress.city ||
-        !orderInfor.billingAddress.state ||
-        !orderInfor.billingAddress.zip ||
-        !orderInfor.billingAddress.country
-    ) {
-        return res.status(400).json({message: "Preencha todas informações de localidade e métodos de pagamento!"})
-    }
 
     if (!Array.isArray(productsId) || productsId.length === 0) {
       return res
@@ -128,61 +119,70 @@ class OrderController {
         return res.status(404).json({ message: "Esse usuário não existe!" });
       }
 
-      const products: ProductInfo[] = await Promise.all(
-        productsId.map(async (product: any) => {
-          const productId = product.product;
+      const productsPurchased: ProductInfo[] = await Promise.all(
+        productsId.map(async (productItem: any) => {
+          const productId = productItem.product;
 
           if(!mongoose.isValidObjectId(productId)) {
             throw new Error("o Id do produto é inválido!")
           }
 
-          const isProductExists = await ProductModel.findById(productId);
+          const product = await ProductModel.findById(productId);
 
-          if (!isProductExists) {
+          if (!product) {
             throw new Error(`Produto com id ${productId} não existe.`);
           }
 
-          const hasProductInStock = isProductExists.quantityInStock;
-          const productPrice = isProductExists.priceDescont
-            ? isProductExists.priceDescont
-            : isProductExists.price;
+          const currentQuantityProductInStock = product.quantityInStock;
+          const quantityProductCustomerPurchase = productItem.quantity;
+          const hasProductInStock = product.quantityInStock > 0;
+          const productPrice = product.priceDescont
+            ? product.priceDescont
+            : product.price;
 
-          if (hasProductInStock <= 0) {
-            throw new Error(`O produto ${isProductExists.title} não possui quantidade em estoque!`);
+          if (!hasProductInStock) {
+            throw new Error(`O produto ${product.title} não possui quantidade em estoque!`);
           }
 
+          if(quantityProductCustomerPurchase > currentQuantityProductInStock) { 
+            throw new Error(`O Produto ${product.title} não possui a quantidade disponível para compra!`)
+          }
+
+          const newQuantityProductInStock = currentQuantityProductInStock - quantityProductCustomerPurchase; 
+
+          product.quantityInStock = newQuantityProductInStock;
+
+          product.save();
+
           return {
-            productId: isProductExists._id.toString(),
+            productId: product._id.toString(),
             price: productPrice,
-            quantity: product.quantity,
+            quantity: quantityProductCustomerPurchase,
           };
         })
       );
 
-      const totalProductsPrice = products.reduce((acc, product) => {
-        return acc + (product.price * product.quantity)
+      const totalProductsPrice = productsPurchased.reduce((acc, product) => {
+        return roundToTwoDecimals(acc + (product.price  * product.quantity))
       }, 0)
-
 
       const data = {
         customer: customerId,
-        products: [...products].map(product => ({product: product.productId, quantity: product.quantity})),
+        products: [...productsPurchased].map(product => ({product: product.productId, quantity: product.quantity})),
         totalPrice: totalProductsPrice,
         ...orderInfor
       }
 
-       await OrderModel.create(data);
+       const orderCreated = await OrderModel.create(data);
     
-       return res.status(201).json({ message: "Pedido criado com sucesso!" });
+       return res.status(201).json({ message: "Pedido criado com sucesso!"});
     } catch (err) {
         const error = err as Error;
-        console.error(error);
-        if (error.message.startsWith('Produto com id')) {
-          return res.status(400).json({ message: error.message });
+        
+        if(error.message) {
+          return res.status(400).json({message: error.message})
         }
-        if (error.message.startsWith('O produto')) {
-          return res.status(404).json({ message: error.message });
-        }
+
         return res.sendStatus(500);
       }
     }
@@ -214,7 +214,10 @@ class OrderController {
       } catch(err) { 
         const error = err as Error;
 
-        console.log(error.message)
+        if(error.message) { 
+          return res.status(400).json({message: error.message})
+        }
+
         return res.status(500).json({message: "Erro interno do servidor!"})
       }
 
@@ -405,7 +408,7 @@ class OrderController {
 
       try {
 
-        const productsCancelled = Promise.all(products.map(async (productItem) => {
+        const productsCancelled = await Promise.all(products.map(async (productItem) => {
           const productExisting = await ProductModel.findById(productItem.productId);
           const productQuantity = productItem.quantity;
 

@@ -7,7 +7,7 @@ import { authUserInRoute } from '../middlewares/auth';
 export const ProductRoutes = express.Router();
 
 
-ProductRoutes.get("/products", authUserInRoute ,ProductController.listAllProducts);
+ProductRoutes.get("/products", ProductController.listAllProducts);
 ProductRoutes.get("/products/category/:categoryId", ProductController.listProductsByCategory);
 ProductRoutes.get("/product/:productId", ProductController.getProductById);
 ProductRoutes.get("/product/search", ProductController.getProductBySearch);

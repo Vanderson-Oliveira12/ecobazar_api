@@ -1,18 +1,11 @@
 import { Response, Request } from "express";
-import { validationResult } from "express-validator";
 import { NewsletterModel } from "../Models/NewsletterMode";
 import { sendEmail } from "../services/sendMail";
 
 class NewsletterController {
 
-
     async registerEmailByNewsletter(req: Request, res: Response) { 
         const { email } = req.body;
-        const errors = validationResult(req);
-
-        if(!errors.isEmpty()) {
-            return res.status(400).json({errors: errors.array()})
-        }
 
         try {
             const isEmailRegistered = await NewsletterModel.findOne({email});
@@ -35,9 +28,7 @@ class NewsletterController {
 
 
         try {
-
             const emailsSearched = await NewsletterModel.find().select("email -_id");
-
 
             if(emailsSearched.length) { 
                 let emails = emailsSearched.map(emailRecord  => emailRecord .email);
