@@ -46,7 +46,7 @@ class AuthController {
           role: user.role
         },
         process.env.JWT_SECRET,
-        { expiresIn: '15min' }
+        { expiresIn: '1h' }
       );
 
       const refreshToken = sign({
@@ -215,7 +215,7 @@ class AuthController {
           role: user.role
         },
         process.env.JWT_SECRET,
-        { expiresIn: '15min' }
+        { expiresIn: '1h' }
       );
 
       const data = {

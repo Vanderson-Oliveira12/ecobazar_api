@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { CustomerModel } from "../Models/CustomerModel";
-import mongoose from "mongoose";
+import mongoose, { ObjectId } from "mongoose";
+import { ProductModel } from "../Models/ProductModel";
 
 class CostumerController {
 
@@ -25,7 +26,6 @@ class CostumerController {
         }
 
         try {
-
             const customer = await CustomerModel.findById(customerId);
 
             if(!customer) { 
@@ -39,7 +39,9 @@ class CostumerController {
         }
      }
 
-    async updateCostumer(req: Request, res: Response) { }
+    async updateCostumer(req: Request, res: Response) { 
+
+    }
 
     async deleteCostumer(req: Request, res: Response) { 
         const {customerId} = req.params;
@@ -60,6 +62,112 @@ class CostumerController {
         } catch(err) { 
             console.log(err);
             return res.sendStatus(500);
+        }
+    }
+
+    async saveProductFavoriteInCustomer(req: Request, res: Response) { 
+
+        const customerId = req.params.customerId;
+        const productId = req.params.productId;
+
+        if(!mongoose.isValidObjectId(customerId)) {
+            return res.status(400).json({message: "ID de usuário inválido!"})
+        }
+
+        if(!mongoose.isValidObjectId(productId)) { 
+            return res.status(400).json({message: "Produto com ID inválido!"})
+        }
+
+        const customerIdObject = new mongoose.Types.ObjectId(customerId)
+        const productIdObject = new mongoose.Types.ObjectId(productId)
+
+        try {
+            const customerExist = await CustomerModel.findById(customerIdObject);
+            const productExist = await ProductModel.findById(productIdObject);
+
+            if(!customerExist) {
+                return res.status(404).json({message: "Não foi possível encontrar o usuário!"})
+            } 
+
+            if(!productExist) { 
+                return res.status(404).json({message: "Não foi possível encontrar o produto"})
+            }
+
+            const currentCustomerProductsFavorites = customerExist.myProductsFavorites;
+            const productIsExistingInFavoritesList = currentCustomerProductsFavorites.findIndex(productSavedId => productSavedId.toString() == productIdObject.toString());
+
+            if(productIsExistingInFavoritesList != -1) {
+                return res.status(400).json({message: "O produto já está salvo na lista de favoritos!"})
+            }
+
+            currentCustomerProductsFavorites.push(productIdObject)
+
+            customerExist.myProductsFavorites = currentCustomerProductsFavorites;
+
+            await customerExist.save();
+
+            res.status(200).json({message: "Produto salvo na lista de favoritos com sucesso!"})
+        } catch(err)  {
+            const error = err as Error;
+
+            if(error.message) { 
+                return res.status(400).json({message: error.message})
+            }
+
+            return res.status(500).json({message: "Erro interno!"})
+        }
+
+    }
+
+    async removeProductInFavoritesListCustomer(req: Request, res: Response) { 
+        const customerId = req.params.customerId;
+        const productId = req.params.productId;
+
+        if(!mongoose.isValidObjectId(customerId)) {
+            return res.status(400).json({message: "ID de usuário inválido!"})
+        }
+
+        if(!mongoose.isValidObjectId(productId)) { 
+            return res.status(400).json({message: "Produto com ID inválido!"})
+        }
+
+        const customerIdObject = new mongoose.Types.ObjectId(customerId)
+        const productIdObject = new mongoose.Types.ObjectId(productId)
+
+        try {
+            const customerExist = await CustomerModel.findById(customerIdObject);
+            const productExist = await ProductModel.findById(productIdObject);
+
+            if(!customerExist) {
+                return res.status(404).json({message: "Não foi possível encontrar o usuário!"})
+            } 
+
+            if(!productExist) { 
+                return res.status(404).json({message: "Não foi possível encontrar o produto"})
+            }
+
+            const currentListProductsFavorites = customerExist.myProductsFavorites;
+            const productRemovedIndex = currentListProductsFavorites.findIndex(productId => productId.toString( )== productIdObject.toString())
+
+            if(productRemovedIndex == -1) { 
+                return res.status(404).json({message: "Produto não está na lista de favoritos!"})
+            }
+
+            currentListProductsFavorites.splice(productRemovedIndex, 1)
+
+            customerExist.myProductsFavorites = currentListProductsFavorites;
+
+            await customerExist.save();
+
+            res.send({message: "Produto removido da lista de favoritos com sucesso!"})
+        } catch(err)  {
+            const error = err as Error;
+
+            if(error.message) { 
+                return res.status(400).json({message: error.message})
+            }
+
+            return res.status(500).json({message: "Erro interno!"})
         }
     }
 
