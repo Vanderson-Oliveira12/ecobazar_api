@@ -37,7 +37,6 @@ class ProductController {
 
         const products = await ProductModel.find().where({category: categoryId}).populate("category")
 
-
       res.json(products);
     } catch (err) {
       res.sendStatus(500);
@@ -217,6 +216,44 @@ class ProductController {
     } catch(err) { 
       console.log(err)
       res.sendStatus(500);
+    }
+  }
+
+  async getProductsByPagination(req: Request, res: Response) { 
+
+    const limit = Number(req.query.limit);
+    const offset = Number(req.query.offset);
+
+    if(!offset || !limit) {
+      return res.status(400).json({message: "limit e offset obrigatórios!"})
+    } 
+
+    if(typeof limit != "number" || typeof offset != "number") { 
+      return res.status(400).json({message: "limit e offset precisam ser números!"})
+    }
+
+    try {
+      const products = await ProductModel.find()
+      .skip((offset - 1) * limit)
+      .limit(limit)
+  
+      const quantityProducts = await ProductModel.find().countDocuments();
+  
+      const totalPages = Math.ceil(quantityProducts / limit);
+  
+  
+      res.send({message: {
+        totalPages,
+        products
+      }});
+    } catch(err) { 
+      const error = err as Error;
+
+      if(error.message) {
+        return res.status(400).json({message: error.message})
+      }
+
+      return res.status(500).json({message: "Erro interno!"})
     }
   }
 

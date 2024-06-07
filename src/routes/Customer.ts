@@ -1,13 +1,13 @@
 import express from 'express';
 import CostumerController from '../Controllers/CostumerController';
-import { authUserInRoute } from '../middlewares/auth';
+import { authAdminRouter, authCustomerRouter } from '../middlewares/auth';
 
 
 export const CustomerRoutes = express.Router();
 
-CustomerRoutes.get("/customers", authUserInRoute ,CostumerController.getAllCostumers);
-CustomerRoutes.get("/customer/:customerId", authUserInRoute, CostumerController.getCostumerById);
-CustomerRoutes.delete("/customer/delete/:customerId", authUserInRoute, CostumerController.deleteCostumer);
+CustomerRoutes.get("/customers", authAdminRouter ,CostumerController.getAllCostumers);
+CustomerRoutes.get("/customer/:customerId", authCustomerRouter ,CostumerController.getCostumerById);
+CustomerRoutes.delete("/customer/delete/:customerId", authAdminRouter, CostumerController.deleteCostumer);
 
-CustomerRoutes.post("/customer/:customerId/products/favorites/:productId", authUserInRoute, CostumerController.saveProductFavoriteInCustomer);
-CustomerRoutes.delete("/customer/:customerId/products/favorites/:productId", authUserInRoute, CostumerController.removeProductInFavoritesListCustomer);
+CustomerRoutes.post("/customer/:customerId/products/favorites/:productId", authCustomerRouter, CostumerController.saveProductFavoriteInCustomer);
+CustomerRoutes.delete("/customer/:customerId/products/favorites/:productId", authCustomerRouter, CostumerController.removeProductInFavoritesListCustomer);

@@ -4,7 +4,7 @@ import { verify } from "jsonwebtoken"
 
 import {CustomJwtPayload} from "../interfaces/roles";
 
-export function authUserInRoute(req: Request, res: Response, next: NextFunction) { 
+export function authAdminRouter(req: Request, res: Response, next: NextFunction) { 
 
     const { authorization } = req.headers;
     const token = authorization?.split(" ").pop();
@@ -29,6 +29,48 @@ export function authUserInRoute(req: Request, res: Response, next: NextFunction)
             next();
         }
 
+    } catch(err) { 
+        const error = err as Error;
+
+        if(error.message.includes('invalid')) {
+            return res.status(401).json({message: "O token fornecido não é válido!"})
+        } 
+        
+        if(error.message.includes("expired")) { 
+            return res.status(401).json({message: "Token expirado"})
+        }
+
+        return res.status(500).json({ message: "Erro ao verificar o token" });
+    }
+
+}
+
+export function authCustomerRouter(req: Request, res: Response, next: NextFunction) { 
+
+    const { authorization } = req.headers;
+    const token = authorization?.split(" ").pop();
+
+    if(!authorization || !token) { 
+        return res.status(403).json({message: "Token de autorização necessária, para acessar essa rota!"})
+    } 
+
+    if (!process.env.JWT_SECRET) {
+        throw new Error("A chave JWT não está definida no ambiente!");
+    }
+
+    try { 
+        const tokenDecoded = verify(token, process.env.JWT_SECRET) as CustomJwtPayload;
+
+        if (req.params.customerId) {
+            const customerId = req.params.customerId;
+            const customerTokenId = tokenDecoded.id;
+
+            if (customerId !== customerTokenId) {
+                return res.status(400).json({ message: "O token não pertence ao usuário!" });
+            }
+        }
+
+        next();
     } catch(err) { 
         const error = err as Error;
 
